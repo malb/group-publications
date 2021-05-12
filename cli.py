@@ -70,8 +70,8 @@ def sync(loglvl):
 
     """
     logging.basicConfig(level=loglvl, format="%(message)s")
-    pull()
-    push()
+    update_from_dblp(commit=True)
+    render_templates()
 
 
 @gp.command()
