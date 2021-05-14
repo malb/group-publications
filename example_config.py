@@ -2,35 +2,24 @@
 from db import Publication
 
 
-def A():
-    return lambda publication: True
-
-
-def YEAR_RANGE(start, end=None):
-    if end is None:
-        return lambda publication: start <= publication.year
-    else:
-        return lambda publication: start <= publication.year and publication.year < end
-
-
 class GPConfig:
+    # database file
     DB_PATH = "gp.db"
-    DBLP_PIDS = (
-        (
-            "92/7397",  # Martin Albrecht
-            lambda publication: (
-                publication.year in (2008, 2009, 2010) or publication.year >= 2015
-            ),
-        ),
-        (
-            "19/2372",  # Carlos Cid
-            YEAR_RANGE(2003, None),
-        ),
-        (
-            "158/7281",  # Rachel Player
-            A(),
-        ),
-    )
+
+    # the main source of DBLP PIDs
+    DBLP_PID_CSV = "example.csv"
+
+    # manually add DBLP_PIDs with arbitrary predicates
+    #  DBLP_PIDS = (
+    #   (
+    #        "92/7397",  # Martin Albrecht
+    #        lambda publication: (
+    #            publication.year in (2008, 2009, 2010) or publication.year >= 2015
+    #        ),
+    #    ),
+    MANUAL_DBLP_PIDS = ()
+
+    # output filename, template filename, filter callable
     OUTPUTS = (
         (
             "output/list-of-publications.md",

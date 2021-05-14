@@ -1,14 +1,75 @@
 # -*- coding: utf-8 -*-
-import requests
-import re
-import xml.etree.ElementTree as ET
 from config import GPConfig
-import logging
-from jinja2 import Template
-
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy import create_engine
 from db import Base, Author, Publication
+from functools import partial
+from jinja2 import Template
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+import csv
+import logging
+import re
+import requests
+import xml.etree.ElementTree as ET
+
+
+def year_ranges(publication, pairs):
+    """
+    predicate that accepts if publication is in one of the (start, end) year pairs.
+
+    Pairs format:
+
+    - The empty list means: accept all
+    - `(2003, None)` means: all from 2003 (inclusive)
+    - `(2003, 2005)` means: all between 2003 and 2005 (endpoints inclusive)
+
+    :param publication:
+    :param pairs: pairs of start, end (inclusive)
+    :returns:
+
+    """
+    if publication.visibility is not None:
+        return publication.visibility
+
+    # we treat an empty list as "accept all" instead of "reject all"
+    if not pairs:
+        return True
+
+    for start, end in pairs:
+        if end and start <= publication.year and publication.year <= end:
+            return True
+        elif start <= publication.year:
+            return True
+    return False
+
+
+def dblp_pids():
+    """
+    Return all DBLP PIDs according to `GPConfig`
+
+    :returns: list of pairs: (dblp pid, predicate)
+
+    """
+    _dblp_pids = []
+    with open("gp.csv", "r") as fh:
+        reader = csv.reader(fh)
+        next(reader, None)  # skip the headers
+        for row in reader:
+            dblp_pid, name = row[:2]
+            pairs = []
+            years = iter(row[2:])
+            for start in years:
+                if not start:
+                    break
+                start = int(start)
+                end = next(years)
+                if end:
+                    end = int(end)
+                else:
+                    end = None
+                pairs.append((start, end))
+            _dblp_pids.append((dblp_pid, partial(year_ranges, pairs=pairs)))
+    _dblp_pids.extend(GPConfig.MANUAL_DBLP_PIDS)
+    return _dblp_pids
 
 
 def dblp_fetch(pid):
@@ -70,8 +131,10 @@ def dblp_parse(root):
                 "Type of publication for '%s' not understood" % ET.tostring(publication)
             )
 
+        author_tag = "editor" if publication_type in ("proceedings",) else "author"
+
         authors = []
-        for author in publication.findall("author"):
+        for author in publication.findall(author_tag):
             author_name = author.text
             # Foo Bar 0001 is a thing on DBLP
             author_name = re.match("([^0-9]*)([0-9]+)?", author_name).group(1).strip()
@@ -129,9 +192,10 @@ def dblp_parse(root):
                 year=year,
                 url=url,
                 dblp_url=dblp_url,
+                visibility=None,
             )
         )
-        logging.info("Found '{publication}'".format(publication=publications[-1]))
+        logging.debug("Found '{publication}'".format(publication=publications[-1]))
 
     return publications
 
@@ -145,8 +209,8 @@ def update_from_dblp(commit=False):
     :param commit: if `True` commit result to disk.
 
     """
-
-    for group_member, predicate in GPConfig.DBLP_PIDS:
+    new = []
+    for group_member, predicate in dblp_pids():
         logging.info("Fetching user '{group_member}'".format(group_member=group_member))
         root = dblp_fetch(group_member)
         publications = dblp_parse(root)
@@ -157,15 +221,23 @@ def update_from_dblp(commit=False):
                 Author.from_dblp_pid(session, pid=author.dblp_pid, name=author.name)
                 for author in publication.authors
             ]
-            if predicate(publication) and publication.id is None:
+            if publication.visibility is None and predicate(publication):
+                logging.info("Added '{publication}'".format(publication=publication))
+                publication.visibility = True
+                new.append(publication)
+
+            if publication.id is None:
                 session.add(publication)
+
     if commit:
         session.commit()
+
+    return tuple(new)
 
 
 def render_templates():
 
-    query = session.query(Publication).filter(Publication.visible)
+    query = session.query(Publication).filter(Publication.visibility)
     query = query.order_by(Publication.year.desc())
 
     for output_path, template_path, filterf in GPConfig.OUTPUTS:

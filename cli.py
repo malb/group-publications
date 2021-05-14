@@ -74,14 +74,52 @@ def sync(loglvl):
     render_templates()
 
 
-@gp.command()
-@click.argument("dblp_key", type=str)
-def toggle(dblp_key):
-    """
-    Toggle visibility of entry given by `dblp_key`.
-    """
+def set_visibility(dblp_keys, visibility):
+    for dblp_key in dblp_keys:
+        publications = (
+            session.query(Publication).filter(Publication.dblp_key.like("%" + dblp_key + "%")).all()
+        )
+        for publication in publications:
+            if publication.visibility == visibility:
+                continue
+            if visibility:
+                logging.info("Enabled {publication}".format(publication=publication))
+            else:
+                logging.info("Disabled {publication}".format(publication=publication))
+            publication.visibility = visibility
+    session.commit()
 
-    Publication.toggle_visibility(session, dblp_key, commit=True)
+
+@gp.command()
+@click.argument("dblp_keys", nargs=-1, type=str)
+@click.option(
+    "--loglvl",
+    help="Level of verbosity",
+    type=click.Choice(["DEBUG", "INFO", "WARNING"], case_sensitive=False),
+    default="INFO",
+)
+def enable(dblp_keys, loglvl):
+    """
+    Enable visibility of entry given by `dblp_keys`.
+    """
+    logging.basicConfig(level=loglvl, format="%(message)s")
+    set_visibility(dblp_keys, True)
+
+
+@gp.command()
+@click.argument("dblp_keys", nargs=-1, type=str)
+@click.option(
+    "--loglvl",
+    help="Level of verbosity",
+    type=click.Choice(["DEBUG", "INFO", "WARNING"], case_sensitive=False),
+    default="INFO",
+)
+def disable(dblp_keys, loglvl):
+    """
+    Disable visibility of entry given by `dblp_keys`.
+    """
+    logging.basicConfig(level=loglvl, format="%(message)s")
+    set_visibility(dblp_keys, False)
 
 
 @gp.command()
@@ -95,7 +133,9 @@ def show(years, preprints):
     :param preprints: include preprints
 
     """
-    query = session.query(Publication).filter(Publication.visible).order_by(Publication.year.desc())
+    query = (
+        session.query(Publication).filter(Publication.visibility).order_by(Publication.year.desc())
+    )
     if not preprints:
         query = query.filter(Publication.type != "informal")
     if years:

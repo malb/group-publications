@@ -64,7 +64,7 @@ class Publication(Base):
     number = Column(String, default="")
     url = Column(String, default="")
     dblp_url = Column(String, default="")
-    visible = Column(Boolean, default=True)
+    visibility = Column(Boolean, default=None)
     comment = Column(String, default="")
     public_comment = Column(String, default="")
 
@@ -106,6 +106,6 @@ class Publication(Base):
     @staticmethod
     def toggle_visibility(session, dblp_key, commit=False):
         publication = session.query(Publication).filter(Publication.dblp_key == dblp_key).one()
-        publication.visible = not publication.visible
+        publication.visibility = not publication.visibility
         if commit:
             session.commit()
