@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
-from sqlalchemy import Table, Column, Boolean, Integer, String, Enum, ForeignKey
+from sqlalchemy import Table, Column, Boolean, Date, Integer, String, Enum, ForeignKey
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 from sqlalchemy.orm.exc import NoResultFound
+import datetime
 
 Base = declarative_base()
 
@@ -37,23 +38,24 @@ class Author(Base):
         return "{pid}: {name}".format(pid=self.dblp_pid, name=self.name)
 
 
+PUBLICATION_TYPES = (
+    "informal",
+    "inproceedings",
+    "incollection",
+    "article",
+    "phdthesis",
+    "proceedings",
+    "book",
+)
+
+
 class Publication(Base):
 
     __tablename__ = "publications"
 
     id = Column(Integer, primary_key=True)
     dblp_key = Column(String, unique=True)
-    type = Column(
-        Enum(
-            "informal",
-            "inproceedings",
-            "incollection",
-            "article",
-            "phdthesis",
-            "proceedings",
-            "book",
-        )
-    )
+    type = Column(Enum(*PUBLICATION_TYPES))
     authors = relationship("Author", secondary=association_table, back_populates="publications")
     author_order = Column(String)
     title = Column(String)
@@ -67,6 +69,8 @@ class Publication(Base):
     visibility = Column(Boolean, default=None)
     comment = Column(String, default="")
     public_comment = Column(String, default="")
+    dblp_mdate = Column(Date)
+    cdate = Column(Date, default=datetime.date.today())
 
     @staticmethod
     def from_dblp_key(session, key, **kwds):

@@ -1,11 +1,12 @@
 # -*- coding: utf-8 -*-
 from config import GPConfig
-from db import Base, Author, Publication
+from db import Base, Author, Publication, PUBLICATION_TYPES
 from functools import partial
 from jinja2 import Template
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 import csv
+import datetime
 import logging
 import re
 import requests
@@ -54,9 +55,9 @@ def dblp_pids():
         reader = csv.reader(fh)
         next(reader, None)  # skip the headers
         for row in reader:
-            dblp_pid, name = row[:2]
+            dblp_pid, name, comment = row[:3]
             pairs = []
-            years = iter(row[2:])
+            years = iter(row[3:])
             for start in years:
                 if not start:
                     break
@@ -109,6 +110,7 @@ def dblp_parse(root):
         publication = list(child)[0]
 
         dblp_key = publication.attrib["key"]
+        mdate = datetime.date.fromisoformat(publication.attrib["mdate"])
 
         publication_type = None
         if publication.tag == "article":
@@ -116,15 +118,7 @@ def dblp_parse(root):
                 publication_type = "informal"
             else:
                 publication_type = "article"
-        elif publication.tag in (
-            "informal",
-            "inproceedings",
-            "incollection",
-            "article",
-            "phdthesis",
-            "proceedings",
-            "book",
-        ):
+        elif publication.tag in PUBLICATION_TYPES:
             publication_type = publication.tag
         else:
             raise ValueError(
@@ -192,6 +186,7 @@ def dblp_parse(root):
                 year=year,
                 url=url,
                 dblp_url=dblp_url,
+                dblp_mdate=mdate,
                 visibility=None,
             )
         )
@@ -238,7 +233,7 @@ def update_from_dblp(commit=False):
 def render_templates():
 
     query = session.query(Publication).filter(Publication.visibility)
-    query = query.order_by(Publication.year.desc())
+    query = query.order_by(Publication.year.desc(), Publication.dblp_mdate.desc())
 
     for output_path, template_path, filterf in GPConfig.OUTPUTS:
         publications = filterf(query).all()
