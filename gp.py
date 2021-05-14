@@ -50,7 +50,7 @@ def dblp_pids():
 
     """
     _dblp_pids = []
-    with open("gp.csv", "r") as fh:
+    with open(GPConfig.DBLP_PID_CSV, "r") as fh:
         reader = csv.reader(fh)
         next(reader, None)  # skip the headers
         for row in reader:
