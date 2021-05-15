@@ -1,7 +1,7 @@
 Group Publications
 ==================
 
-Simple Python scripts to:
+Simple Python (3.7+) scripts to:
 
 1. Fetch the publications of a list of people from DBLB (with some filtering rules)
 2. Add them to a local database
