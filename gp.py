@@ -36,8 +36,9 @@ def year_ranges(publication, pairs):
         return True
 
     for start, end in pairs:
-        if end and start <= publication.year and publication.year <= end:
-            return True
+        if end:
+            if start <= publication.year and publication.year <= end:
+                return True
         elif start <= publication.year:
             return True
     return False
