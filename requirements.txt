@@ -1,7 +1,4 @@
-flake8
-black
 requests
-jupyter
 sqlalchemy
 click
 Jinja2
