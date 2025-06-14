@@ -2,3 +2,5 @@
 /gp.db
 /config.py
 /members.csv
+/.python-version
+/uv.lock
