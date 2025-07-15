@@ -2,7 +2,7 @@
 from sqlalchemy import Table, Column, Boolean, Date, Integer, String, Enum, ForeignKey
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
-from sqlalchemy.orm.exc import NoResultFound
+from sqlalchemy.exc import NoResultFound
 import datetime
 
 Base = declarative_base()
