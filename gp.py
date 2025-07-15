@@ -206,24 +206,27 @@ def update_from_dblp(commit=False):
 
     """
     new = []
-    for group_member, predicate in dblp_pids():
-        logging.info("Fetching user '{group_member}'".format(group_member=group_member))
-        root = dblp_fetch(group_member)
-        publications = dblp_parse(root)
+    with session.no_autoflush:
+        for group_member, predicate in dblp_pids():
+            logging.info("Fetching user '{group_member}'".format(group_member=group_member))
+            root = dblp_fetch(group_member)
+            publications = dblp_parse(root)
 
-        for publication in publications:
-            # we may have added the authors to the DB in the meantime, avoid duplicates by rechecking
-            publication.authors = [
-                Author.from_dblp_pid(session, pid=author.dblp_pid, name=author.name)
-                for author in publication.authors
-            ]
-            if publication.visibility is None and predicate(publication):
-                logging.info("Added '{publication}'".format(publication=publication))
-                publication.visibility = True
-                new.append(publication)
+            for publication in publications:
+                # we may have added the authors to the DB in the meantime, avoid duplicates by rechecking
+                publication.authors = [
+                    Author.from_dblp_pid(session, pid=author.dblp_pid, name=author.name)
+                    for author in publication.authors
+                ]
+                if publication.visibility is None and predicate(publication):
+                    logging.info("Added '{publication}'".format(publication=publication))
+                    publication.visibility = True
+                    new.append(publication)
 
-            if publication.id is None:
-                session.add(publication)
+                if publication.id is None:
+                    session.add(publication)
+
+    session.flush()
 
     if commit:
         session.commit()
