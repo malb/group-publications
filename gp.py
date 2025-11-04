@@ -226,7 +226,7 @@ def update_from_dblp(commit=False):
                 if publication.id is None:
                     session.add(publication)
 
-    session.flush()
+                session.flush()
 
     if commit:
         session.commit()
