@@ -13,6 +13,8 @@ import requests
 import xml.etree.ElementTree as ET
 import time
 
+URL = "https://dblp.org/pid/{pid}.xml"
+
 
 def year_ranges(publication, pairs):
     """
@@ -77,15 +79,23 @@ def dblp_pids():
 
 def dblp_fetch(pid):
     """
-    Fetch https://dblp.uni-trier.de/pid/{pid}.xml
+    Fetch data for PID.
 
     :param pid: DBLP pid
     :returns:  `xml.etree.ElementTree`
 
     """
 
-    url = "https://dblp.uni-trier.de/pid/{pid}.xml".format(pid=pid)
+    url = URL.format(pid=pid)
     r = requests.get(url)
+    if r.status_code == 429:
+        # Rate limited - respect Retry-After header
+        wait_time = int(r.headers.get("Retry-After", "5"))
+        logging.warning(
+            f"Rate limited. Waiting {wait_time} seconds as indicated by Retry-After header"
+        )
+        time.sleep(wait_time + 1)
+        r = requests.get(url)
     if r.status_code != 200:
         raise RuntimeError(
             "Request returned status code {status_code}".format(
@@ -222,9 +232,7 @@ def update_from_dblp(commit=False):
                 "Fetching user '{group_member}'".format(group_member=group_member)
             )
             root = dblp_fetch(group_member)
-            time.sleep(
-                5
-            )  # NOTE: yes this is dumb, should instead parse DBLP's timeout return value!
+            time.sleep(2)  # be conservative
             publications = dblp_parse(root)
 
             for publication in publications:
