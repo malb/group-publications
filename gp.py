@@ -11,6 +11,7 @@ import logging
 import re
 import requests
 import xml.etree.ElementTree as ET
+import time
 
 
 def year_ranges(publication, pairs):
@@ -87,7 +88,9 @@ def dblp_fetch(pid):
     r = requests.get(url)
     if r.status_code != 200:
         raise RuntimeError(
-            "Request returned status code {status_code}".format(status_code=r.status_code)
+            "Request returned status code {status_code}".format(
+                status_code=r.status_code
+            )
         )
     root = ET.fromstring(r.text)
     return root
@@ -115,7 +118,10 @@ def dblp_parse(root):
 
         publication_type = None
         if publication.tag == "article":
-            if "publtype" in publication.attrib and publication.attrib["publtype"] == "informal":
+            if (
+                "publtype" in publication.attrib
+                and publication.attrib["publtype"] == "informal"
+            ):
                 publication_type = "informal"
             else:
                 publication_type = "article"
@@ -133,7 +139,9 @@ def dblp_parse(root):
             author_name = author.text
             # Foo Bar 0001 is a thing on DBLP
             author_name = re.match("([^0-9]*)([0-9]+)?", author_name).group(1).strip()
-            authors.append(Author.from_dblp_pid(session, author.attrib["pid"], author_name))
+            authors.append(
+                Author.from_dblp_pid(session, author.attrib["pid"], author_name)
+            )
 
         # many-to-many relations don't preserve order but author order can matter so we store it manually
         author_order = Publication.author_orderf(authors)
@@ -169,7 +177,9 @@ def dblp_parse(root):
         number = publication.findtext("number", "")
         # IACR ePrint is so important to us we treat is specially
         if venue == "IACR Cryptol. ePrint Arch.":
-            number = re.match("http(s)?://eprint.iacr.org/([0-9]{4})/([0-9]+)", url).group(3)
+            number = re.match(
+                "http(s)?://eprint.iacr.org/([0-9]{4})/([0-9]+)", url
+            ).group(3)
 
         publications.append(
             # get it from DB if it exists, otherwise create new entry
@@ -208,8 +218,13 @@ def update_from_dblp(commit=False):
     new = []
     with session.no_autoflush:
         for group_member, predicate in dblp_pids():
-            logging.info("Fetching user '{group_member}'".format(group_member=group_member))
+            logging.info(
+                "Fetching user '{group_member}'".format(group_member=group_member)
+            )
             root = dblp_fetch(group_member)
+            time.sleep(
+                5
+            )  # NOTE: yes this is dumb, should instead parse DBLP's timeout return value!
             publications = dblp_parse(root)
 
             for publication in publications:
@@ -219,7 +234,9 @@ def update_from_dblp(commit=False):
                     for author in publication.authors
                 ]
                 if publication.visibility is None and predicate(publication):
-                    logging.info("Added '{publication}'".format(publication=publication))
+                    logging.info(
+                        "Added '{publication}'".format(publication=publication)
+                    )
                     publication.visibility = True
                     new.append(publication)
 
